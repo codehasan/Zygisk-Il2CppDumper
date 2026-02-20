@@ -1,0 +1,12 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+/out
+.externalNativeBuild
+.cxx
+repomix-output.xml
+repomix.config.json

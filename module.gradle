@@ -1,0 +1,9 @@
+ext {
+    moduleLibraryName = "il2cppdumper"
+    magiskModuleId = "zygisk_il2cppdumper"
+    moduleName = "Zygisk - Il2CppDumper"
+    moduleAuthor = "codehasan & Perfare"
+    moduleDescription = "Place package in /data/local/tmp/il2cpp_package.txt and restart the game"
+    moduleVersion = "v1.3.0"
+    moduleVersionCode = 2
+}
