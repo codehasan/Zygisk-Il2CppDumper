@@ -38,12 +38,12 @@ public:
     }
 
 private:
-    Api *api;
-    JNIEnv *env;
-    bool enable_hack;
-    char *game_data_dir;
-    void *data;
-    size_t length;
+    Api *api{};
+    JNIEnv *env{};
+    bool enable_hack{};
+    char *game_data_dir{};
+    void *data{};
+    size_t length{};
 
     void preSpecialize(const char *package_name, const char *app_data_dir) {
         if (strcmp(package_name, GamePackageName) == 0) {
