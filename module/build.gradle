@@ -84,6 +84,13 @@ afterEvaluate {
                         Files.move(srcPath, dstPath)
                     }
                     new File("$magiskDir/lib").deleteDir()
+
+                    // Set executable permissions for shell scripts
+                    fileTree(magiskDir).matching {
+                        include '**/*.sh'
+                    }.each {
+                        it.setExecutable(true, false)
+                    }
                 }
             }
 

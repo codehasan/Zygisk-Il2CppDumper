@@ -4,3 +4,6 @@ version=${version}
 versionCode=${versionCode}
 author=${author}
 description=${description}
+
+# Action button configuration
+action=action.sh
