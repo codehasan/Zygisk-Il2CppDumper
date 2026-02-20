@@ -12,11 +12,11 @@ This project is a fork of the original [Zygisk-Il2CppDumper](https://github.com/
 3. Set target game package name
    ```bash
    # Set the package name of the game you want to dump
-   adb shell "echo 'com.example.game' > /data/local/tmp/il2cpp_package.txt"
+   adb shell "echo 'com.example.game' > /data/adb/il2cppdumper/target.txt"
    ```
 4. Start the game, `dump.cs` will be generated in the `/data/data/GamePackageName/files/` directory
 
-> **Note:** You can change the target game at any time by modifying `/data/local/tmp/il2cpp_package.txt` and restarting the game. No need to rebuild or reinstall the module.
+> **Note:** You can change the target game at any time by modifying `/data/adb/il2cppdumper/target.txt` and restarting the game. No need to rebuild or reinstall the module.
 
 ### Advanced: Building from source
 If you prefer to build the module yourself:

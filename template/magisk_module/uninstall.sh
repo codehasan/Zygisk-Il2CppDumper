@@ -1,7 +1,7 @@
 #!/system/bin/sh
 
-PKG_FILE="/data/local/tmp/il2cpp_package.txt"
+TARGET_DIR="/data/adb/il2cppdumper"
 
-if [ -f "$PKG_FILE" ]; then
-    rm "$PKG_FILE"
+if [ -d "$TARGET_DIR" ]; then
+    rm -rf "$TARGET_DIR"
 fi

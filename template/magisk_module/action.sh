@@ -1,33 +1,29 @@
 #!/system/bin/sh
 
-PKG_DIR="/data/local/tmp"
-PKG_FILE="$PKG_DIR/il2cpp_package.txt"
+TARGET_DIR="/data/adb/il2cppdumper"
+TARGET_FILE="$TARGET_DIR/target.txt"
 
-if [ ! -d "$PKG_DIR" ]; then
-    mkdir -p "$PKG_DIR" || {
-        printf "Failed to create directory: $PKG_DIR"
+if [ ! -d "$TARGET_DIR" ]; then
+    mkdir -p "$TARGET_DIR" || {
+        printf "Failed to create directory: $TARGET_DIR\n"
         exit 1
     }
 fi
 
-if [ ! -f "$PKG_FILE" ]; then
-    touch "$PKG_FILE" || {
-        printf "Failed to create file: $PKG_FILE"
+if [ ! -f "$TARGET_FILE" ]; then
+    touch "$TARGET_FILE" || {
+        printf "Failed to create file: $TARGET_FILE\n"
         exit 1
     }
 fi
 
-chmod 666 "$PKG_FILE"
+chmod 666 "$TARGET_FILE"
 
-if [ ! -s "$PKG_FILE" ]; then
-    echo "com.example.game" > "$PKG_FILE"
+if [ ! -s "$TARGET_FILE" ]; then
+    echo "com.example.game" > "$TARGET_FILE"
 fi
 
-if [ -f "$PKG_FILE" ]; then
-    printf "Package file created at: $PKG_FILE"
-    printf "Permissions set to 666 (read/write for all)"
-    printf "You can now edit the file to set your target package"
-else
-    printf "Failed to create package file"
-    exit 1
-fi
+printf "Target file at: $TARGET_FILE\n"
+printf "Current content: "
+cat "$TARGET_FILE"
+printf "\n"

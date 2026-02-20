@@ -1,14 +1,14 @@
 #!/system/bin/sh
 
-PKG_DIR="/data/local/tmp"
-PKG_FILE="$PKG_DIR/il2cpp_package.txt"
+TARGET_DIR="/data/adb/il2cppdumper"
+TARGET_FILE="$TARGET_DIR/target.txt"
 
-if [ ! -d "$PKG_DIR" ]; then
-    mkdir -p "$PKG_DIR"
+if [ ! -d "$TARGET_DIR" ]; then
+    mkdir -p "$TARGET_DIR"
 fi
 
-if [ ! -f "$PKG_FILE" ]; then
-    touch "$PKG_FILE"
-    chmod 666 "$PKG_FILE"
-    echo "com.example.game" > "$PKG_FILE"
+if [ ! -f "$TARGET_FILE" ]; then
+    touch "$TARGET_FILE"
+    chmod 666 "$TARGET_FILE"
+    echo "com.example.game" > "$TARGET_FILE"
 fi
