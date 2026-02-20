@@ -1,9 +1,12 @@
-#!/sbin/sh
+#!/system/bin/sh
 
-# Package file path
-PKG_FILE="/data/local/tmp/il2cpp_package.txt"
+PKG_DIR="/data/local/tmp"
+PKG_FILE="$PKG_DIR/il2cpp_package.txt"
 
-# Create package file if it doesn't exist
+if [ ! -d "$PKG_DIR" ]; then
+    mkdir -p "$PKG_DIR"
+fi
+
 if [ ! -f "$PKG_FILE" ]; then
     touch "$PKG_FILE"
     chmod 666 "$PKG_FILE"
