@@ -4,6 +4,6 @@ ext {
     moduleName = "Zygisk - Il2CppDumper"
     moduleAuthor = "codehasan & Perfare"
     moduleDescription = "Set package with 'setprop persist.il2cppdumper.package com.example.game' and restart the game"
-    moduleVersion = "v1.4.0"
-    moduleVersionCode = 3
+    moduleVersion = "v1.5.0"
+    moduleVersionCode = 4
 }
