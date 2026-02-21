@@ -10,32 +10,21 @@
 #include "log.h"
 
 #include <cctype>
-#include <cstring>
-#include <cstdio>
+#include <sys/system_properties.h>
 
 inline const char *GetGamePackageName() {
     static char package_name[256] = {0};
     static bool initialized = false;
 
     if (!initialized) {
-        FILE *fp = fopen("/data/adb/il2cppdumper/target.txt", "r");
-        if (fp) {
-            if (fgets(package_name, sizeof(package_name), fp)) {
-                char *start = package_name;
+        __system_property_get("persist.il2cppdumper.package", package_name);
 
-                while (isspace(static_cast<unsigned char>(*start))) start++;
-
-                char *end = start + strlen(start);
-                while (end > start && isspace(static_cast<unsigned char>(*(end - 1)))) end--;
-                *end = '\0';
-
-                if (start > package_name) {
-                    memmove(package_name, start, end - start + 1);
-                }
-            }
-            fclose(fp);
+        // Fallback to debug property if persist is not set
+        if (package_name[0] == '\0') {
+            __system_property_get("debug.il2cppdumper.package", package_name);
         }
 
+        // Default fallback if no property is set
         if (package_name[0] == '\0') {
             snprintf(package_name, sizeof(package_name), "com.example.game");
         }

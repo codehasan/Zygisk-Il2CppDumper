@@ -3,7 +3,7 @@ ext {
     magiskModuleId = "zygisk_il2cppdumper"
     moduleName = "Zygisk - Il2CppDumper"
     moduleAuthor = "codehasan & Perfare"
-    moduleDescription = "Set package in /data/adb/il2cppdumper/target.txt and restart the game"
+    moduleDescription = "Set package with 'setprop persist.il2cppdumper.package com.example.game' and restart the game"
     moduleVersion = "v1.4.0"
     moduleVersionCode = 3
 }
