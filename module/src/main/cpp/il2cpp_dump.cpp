@@ -6,6 +6,7 @@
 #include <dlfcn.h>
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
 #include <cinttypes>
 #include <string>
 #include <vector>
@@ -92,12 +93,99 @@ bool _il2cpp_type_is_byref(const Il2CppType *type) {
     return byref;
 }
 
+// Format a const field's value; only primitives and strings are representable, else "".
+std::string get_field_default_value(FieldInfo *field, const Il2CppType *field_type) {
+    std::stringstream outPut;
+    if (!il2cpp_field_static_get_value) {
+        return outPut.str();
+    }
+    uint64_t val = 0;
+    il2cpp_field_static_get_value(field, &val);
+    switch (field_type->type) {
+        case IL2CPP_TYPE_BOOLEAN:
+            outPut << ((val & 0xff) ? "true" : "false");
+            break;
+        case IL2CPP_TYPE_CHAR:
+            outPut << (uint32_t) (uint16_t) val;
+            break;
+        case IL2CPP_TYPE_I1:
+            outPut << (int32_t) (int8_t) val;
+            break;
+        case IL2CPP_TYPE_U1:
+            outPut << (uint32_t) (uint8_t) val;
+            break;
+        case IL2CPP_TYPE_I2:
+            outPut << (int32_t) (int16_t) val;
+            break;
+        case IL2CPP_TYPE_U2:
+            outPut << (uint32_t) (uint16_t) val;
+            break;
+        case IL2CPP_TYPE_I4:
+            outPut << (int32_t) val;
+            break;
+        case IL2CPP_TYPE_U4:
+            outPut << (uint32_t) val;
+            break;
+        case IL2CPP_TYPE_I8:
+            outPut << (int64_t) val;
+            break;
+        case IL2CPP_TYPE_U8:
+            outPut << val;
+            break;
+        case IL2CPP_TYPE_R4: {
+            float f = 0;
+            memcpy(&f, &val, sizeof(f));
+            outPut << f;
+            break;
+        }
+        case IL2CPP_TYPE_R8: {
+            double d = 0;
+            memcpy(&d, &val, sizeof(d));
+            outPut << d;
+            break;
+        }
+        case IL2CPP_TYPE_STRING: {
+            auto str = (Il2CppString *) val;
+            if (!str) {
+                outPut << "null";
+            } else if (il2cpp_string_chars && il2cpp_string_length) {
+                auto chars = il2cpp_string_chars(str);
+                auto len = il2cpp_string_length(str);
+                outPut << "\"";
+                for (int i = 0; i < len; ++i) {
+                    Il2CppChar c = chars[i];
+                    switch (c) {
+                        case '\\': outPut << "\\\\"; break;
+                        case '\"': outPut << "\\\""; break;
+                        case '\n': outPut << "\\n"; break;
+                        case '\r': outPut << "\\r"; break;
+                        case '\t': outPut << "\\t"; break;
+                        default:
+                            if (c >= 0x20 && c < 0x7f) {
+                                outPut << (char) c;
+                            } else {
+                                char buf[8];
+                                snprintf(buf, sizeof(buf), "\\u%04x", c);
+                                outPut << buf;
+                            }
+                    }
+                }
+                outPut << "\"";
+            }
+            break;
+        }
+        default:
+            break;
+    }
+    return outPut.str();
+}
+
 std::string dump_method(Il2CppClass *klass) {
     std::stringstream outPut;
     outPut << "\n\t// Methods\n";
     void *iter = nullptr;
     while (auto method = il2cpp_class_get_methods(klass, &iter)) {
-        //TODO attribute
+        // Note: attributes aren't dumped (reading them requires constructing each one).
         if (method->methodPointer) {
             outPut << "\t// RVA: 0x";
             outPut << std::hex << (uint64_t) method->methodPointer - il2cpp_base;
@@ -113,7 +201,7 @@ std::string dump_method(Il2CppClass *klass) {
         uint32_t iflags = 0;
         auto flags = il2cpp_method_get_flags(method, &iflags);
         outPut << get_method_modifier(flags);
-        //TODO genericContainerIndex
+        // Note: generic method params (<T>) are omitted; no API to read them.
         auto return_type = il2cpp_method_get_return_type(method);
         if (_il2cpp_type_is_byref(return_type)) {
             outPut << "ref ";
@@ -150,7 +238,7 @@ std::string dump_method(Il2CppClass *klass) {
             outPut.seekp(-2, std::stringstream::cur);
         }
         outPut << ") { }\n";
-        //TODO GenericInstMethod
+        // Note: generic instantiations of this method aren't enumerable via the API.
     }
     return outPut.str();
 }
@@ -160,7 +248,7 @@ std::string dump_property(Il2CppClass *klass) {
     outPut << "\n\t// Properties\n";
     void *iter = nullptr;
     while (auto prop_const = il2cpp_class_get_properties(klass, &iter)) {
-        //TODO attribute
+        // Note: no API to enumerate property attributes.
         auto prop = const_cast<PropertyInfo *>(prop_const);
         auto get = il2cpp_property_get_get_method(prop);
         auto set = il2cpp_property_get_set_method(prop);
@@ -200,7 +288,7 @@ std::string dump_field(Il2CppClass *klass) {
     auto is_enum = il2cpp_class_is_enum(klass);
     void *iter = nullptr;
     while (auto field = il2cpp_class_get_fields(klass, &iter)) {
-        //TODO attribute
+        // Note: no API to enumerate field attributes.
         outPut << "\t";
         auto attrs = il2cpp_field_get_flags(field);
         auto access = attrs & FIELD_ATTRIBUTE_FIELD_ACCESS_MASK;
@@ -235,11 +323,18 @@ std::string dump_field(Il2CppClass *klass) {
         auto field_type = il2cpp_field_get_type(field);
         auto field_class = il2cpp_class_from_type(field_type);
         outPut << il2cpp_class_get_name(field_class) << " " << il2cpp_field_get_name(field);
-        //TODO 获取构造函数初始化后的字段值
-        if (attrs & FIELD_ATTRIBUTE_LITERAL && is_enum) {
-            uint64_t val = 0;
-            il2cpp_field_static_get_value(field, &val);
-            outPut << " = " << std::dec << val;
+        // Only const values are recoverable; constructor/initializer values are not.
+        if (attrs & FIELD_ATTRIBUTE_LITERAL) {
+            if (is_enum) {
+                uint64_t val = 0;
+                il2cpp_field_static_get_value(field, &val);
+                outPut << " = " << std::dec << val;
+            } else {
+                auto default_value = get_field_default_value(field, field_type);
+                if (!default_value.empty()) {
+                    outPut << " = " << default_value;
+                }
+            }
         }
         outPut << "; // 0x" << std::hex << il2cpp_field_get_offset(field) << "\n";
     }
@@ -254,7 +349,7 @@ std::string dump_type(const Il2CppType *type) {
     if (flags & TYPE_ATTRIBUTE_SERIALIZABLE) {
         outPut << "[Serializable]\n";
     }
-    //TODO attribute
+    // Note: other attributes aren't dumped (reading them requires constructing each one).
     auto is_valuetype = il2cpp_class_is_valuetype(klass);
     auto is_enum = il2cpp_class_is_enum(klass);
     auto visibility = flags & TYPE_ATTRIBUTE_VISIBILITY_MASK;
@@ -294,7 +389,8 @@ std::string dump_type(const Il2CppType *type) {
     } else {
         outPut << "class ";
     }
-    outPut << il2cpp_class_get_name(klass); //TODO genericContainerIndex
+    // Note: generic type params (<T>) are omitted; no API to read them.
+    outPut << il2cpp_class_get_name(klass);
     std::vector<std::string> extends;
     auto parent = il2cpp_class_get_parent(klass);
     if (!is_valuetype && !is_enum && parent) {
@@ -317,7 +413,7 @@ std::string dump_type(const Il2CppType *type) {
     outPut << dump_field(klass);
     outPut << dump_property(klass);
     outPut << dump_method(klass);
-    //TODO EventInfo
+    // Note: events aren't dumped; EventInfo is opaque with no accessor APIs.
     outPut << "}\n";
     return outPut.str();
 }

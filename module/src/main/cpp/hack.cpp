@@ -115,30 +115,63 @@ struct NativeBridgeCallbacks {
     void *(*loadLibraryExt)(const char *libpath, int flag, void *ns);
 };
 
-bool NativeBridgeLoad(const char *game_data_dir, int api_level, void *data, size_t length) {
-    //TODO 等待houdini初始化
-    sleep(5);
+// Poll (bounded) until a JavaVM exists and ActivityThread.currentApplication() is non-null,
+// signalling the native bridge (houdini) is up. Replaces a fixed sleep. Returns the VM, or
+// nullptr on timeout.
+static JavaVM *WaitForRuntime(void *libart) {
+    auto JNI_GetCreatedJavaVMs = (jint (*)(JavaVM **, jsize, jsize *)) dlsym(
+            libart, "JNI_GetCreatedJavaVMs");
+    LOGI("JNI_GetCreatedJavaVMs %p", JNI_GetCreatedJavaVMs);
+    if (!JNI_GetCreatedJavaVMs) {
+        LOGE("dlsym JNI_GetCreatedJavaVMs failed");
+        return nullptr;
+    }
+    for (int i = 0; i < 300; i++) { // up to ~30s at 100ms per iteration
+        JavaVM *vms_buf[1];
+        jsize num_vms = 0;
+        if (JNI_GetCreatedJavaVMs(vms_buf, 1, &num_vms) == JNI_OK && num_vms > 0) {
+            JavaVM *vms = vms_buf[0];
+            JNIEnv *env = nullptr;
+            if (vms->AttachCurrentThread(&env, nullptr) == JNI_OK && env != nullptr) {
+                bool ready = false;
+                jclass activity_thread_clz = env->FindClass("android/app/ActivityThread");
+                if (activity_thread_clz != nullptr) {
+                    jmethodID currentApplicationId = env->GetStaticMethodID(
+                            activity_thread_clz, "currentApplication",
+                            "()Landroid/app/Application;");
+                    if (currentApplicationId) {
+                        jobject application = env->CallStaticObjectMethod(
+                                activity_thread_clz, currentApplicationId);
+                        if (application != nullptr) {
+                            ready = true;
+                            env->DeleteLocalRef(application);
+                        }
+                    }
+                    env->DeleteLocalRef(activity_thread_clz);
+                }
+                if (env->ExceptionCheck()) {
+                    env->ExceptionClear();
+                }
+                if (ready) {
+                    return vms;
+                }
+            }
+        }
+        usleep(100 * 1000);
+    }
+    LOGE("timed out waiting for runtime/application");
+    return nullptr;
+}
 
+bool NativeBridgeLoad(const char *game_data_dir, int api_level, void *data, size_t length) {
     auto libart = dlopen("libart.so", RTLD_NOW);
     if (!libart) {
         LOGE("dlopen libart.so failed");
         return false;
     }
-    auto JNI_GetCreatedJavaVMs = (jint (*)(JavaVM **, jsize, jsize *)) dlsym(libart,
-                                                                             "JNI_GetCreatedJavaVMs");
-    LOGI("JNI_GetCreatedJavaVMs %p", JNI_GetCreatedJavaVMs);
-    if (!JNI_GetCreatedJavaVMs) {
-        LOGE("dlsym JNI_GetCreatedJavaVMs failed");
-        return false;
-    }
-    JavaVM *vms_buf[1];
-    JavaVM *vms;
-    jsize num_vms;
-    jint status = JNI_GetCreatedJavaVMs(vms_buf, 1, &num_vms);
-    if (status == JNI_OK && num_vms > 0) {
-        vms = vms_buf[0];
-    } else {
-        LOGE("GetCreatedJavaVMs error");
+    JavaVM *vms = WaitForRuntime(libart);
+    if (!vms) {
+        LOGE("runtime/application not ready");
         return false;
     }
 
