@@ -1,3 +1,4 @@
+import groovy.json.JsonOutput
 import org.apache.tools.ant.filters.FixCrLfFilter
 
 import java.nio.file.Files
@@ -36,6 +37,37 @@ android {
 
 repositories {
     mavenLocal()
+}
+
+tasks.register("updateJson") {
+    description = "Regenerate update.json at the repo root from module.gradle values"
+    group = "build"
+
+    def updateJsonFile = file("$rootDir/update.json")
+    def repo = moduleUpdateRepo
+    def branch = moduleUpdateBranch
+    def version = moduleVersion
+    def versionCode = moduleVersionCode
+    // Matches the release zip name produced by the zipRelease task, so the
+    // asset uploaded to the GitHub release is exactly what this URL points at.
+    def releaseZipName = "${moduleName.replace(' ', '_')}-${version}(${versionCode})-release.zip"
+
+    inputs.property("version", version)
+    inputs.property("versionCode", versionCode)
+    inputs.property("repo", repo)
+    inputs.property("branch", branch)
+    outputs.file(updateJsonFile)
+
+    doLast {
+        def json = [
+                version    : version,
+                versionCode: versionCode,
+                zipUrl     : "https://github.com/${repo}/releases/download/${version}/${releaseZipName}".toString(),
+                changelog  : "https://raw.githubusercontent.com/${repo}/${branch}/changelog.md".toString(),
+        ]
+        updateJsonFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(json)) + "\n"
+        println "Wrote ${updateJsonFile}"
+    }
 }
 
 androidComponents {
@@ -124,6 +156,11 @@ androidComponents {
         afterEvaluate {
             tasks.named("assemble${variantCapped}").configure {
                 finalizedBy("zip${variantCapped}")
+            }
+            if (variantLowered == "release") {
+                tasks.named("zip${variantCapped}").configure {
+                    finalizedBy("updateJson")
+                }
             }
         }
     }
