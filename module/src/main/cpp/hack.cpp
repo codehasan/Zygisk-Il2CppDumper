@@ -46,6 +46,10 @@ std::string GetLibDir(JavaVM *vms) {
         if (currentApplicationId) {
             jobject application = env->CallStaticObjectMethod(activity_thread_clz,
                                                               currentApplicationId);
+            if (application == nullptr) {
+                LOGE("currentApplication returned null");
+                return {};
+            }
             jclass application_clazz = env->GetObjectClass(application);
             if (application_clazz) {
                 jmethodID get_application_info = env->GetMethodID(application_clazz,
