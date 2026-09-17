@@ -147,7 +147,7 @@ std::string dump_method(Il2CppClass *klass) {
             outPut << ", ";
         }
         if (param_count > 0) {
-            outPut.seekp(-2, outPut.cur);
+            outPut.seekp(-2, std::stringstream::cur);
         }
         outPut << ") { }\n";
         //TODO GenericInstMethod
@@ -367,7 +367,7 @@ void il2cpp_dump(const char *outDir) {
                 auto type = il2cpp_class_get_type(const_cast<Il2CppClass *>(klass));
                 //LOGD("type name : %s", il2cpp_type_get_name(type));
                 auto outPut = imageStr.str() + dump_type(type);
-                outPuts.push_back(outPut);
+                outPuts.push_back(std::move(outPut));
             }
         }
     } else {
@@ -412,7 +412,7 @@ void il2cpp_dump(const char *outDir) {
                 auto type = il2cpp_class_get_type(klass);
                 //LOGD("type name : %s", il2cpp_type_get_name(type));
                 auto outPut = imageStr.str() + dump_type(type);
-                outPuts.push_back(outPut);
+                outPuts.push_back(std::move(outPut));
             }
         }
     }
