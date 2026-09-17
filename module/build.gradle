@@ -7,29 +7,29 @@ apply plugin: 'com.android.library'
 apply from: file(rootProject.file('module.gradle'))
 
 android {
-    namespace "zygisk.il2cppdumper"
-    compileSdkVersion rootProject.ext.targetSdkVersion
-    ndkVersion '28.2.13676358'
+    namespace = "zygisk.il2cppdumper"
+    compileSdk = rootProject.ext.targetSdk
+    ndkVersion = '28.2.13676358'
 
     defaultConfig {
-        minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
+        minSdk = rootProject.ext.minSdk
+        targetSdk = rootProject.ext.targetSdk
 
         externalNativeBuild {
             cmake {
-                arguments "-DMODULE_NAME:STRING=$moduleLibraryName"
+                arguments("-DMODULE_NAME:STRING=$moduleLibraryName")
             }
         }
     }
 
     buildFeatures {
-        prefab true
+        prefab = true
     }
 
     externalNativeBuild {
         cmake {
-            path "src/main/cpp/CMakeLists.txt"
-            version "4.1.2"
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "4.1.2"
         }
     }
 }
@@ -74,20 +74,24 @@ androidComponents {
                 into 'lib'
             }
 
+            def zygiskDirFile = new File(magiskDir, "zygisk")
+            def libDirFile = new File(magiskDir, "lib")
+            def magiskLibTree = fileTree(libDirFile)
+            def magiskShTree = fileTree(magiskDir).matching { include '**/*.sh' }
+            def libName = moduleLibraryName
+
             doLast {
-                file("$magiskDir/zygisk").mkdir()
-                fileTree("$magiskDir/lib").visit { f ->
+                zygiskDirFile.mkdir()
+                magiskLibTree.visit { f ->
                     if (!f.directory) return
-                    def srcPath = Paths.get("${f.file.absolutePath}/lib${moduleLibraryName}.so")
-                    def dstPath = Paths.get("$magiskDir/zygisk/${f.path}.so")
+                    def srcPath = Paths.get("${f.file.absolutePath}/lib${libName}.so")
+                    def dstPath = Paths.get("${zygiskDirFile.absolutePath}/${f.path}.so")
                     Files.move(srcPath, dstPath)
                 }
-                new File("$magiskDir/lib").deleteDir()
+                libDirFile.deleteDir()
 
                 // Set executable permissions for shell scripts
-                fileTree(magiskDir).matching {
-                    include '**/*.sh'
-                }.each {
+                magiskShTree.each {
                     it.setExecutable(true, false)
                 }
             }

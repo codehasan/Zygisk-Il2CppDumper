@@ -25,12 +25,12 @@ allprojects {
 }
 
 ext {
-    minSdkVersion = 23
-    targetSdkVersion = 37
+    minSdk = 23
+    targetSdk = 37
 
     outDir = file("$rootDir/out")
 }
 
 tasks.register('clean', Delete) {
-    delete rootProject.buildDir, outDir
+    delete rootProject.layout.buildDirectory, outDir
 }
