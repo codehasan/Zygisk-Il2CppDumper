@@ -5,22 +5,26 @@ Il2CppDumper with Zygisk, dump il2cpp data at runtime, can bypass protection, en
 This project is a fork of the original [Zygisk-Il2CppDumper](https://github.com/Perfare/Zygisk-Il2CppDumper) by [Perfare](https://github.com/Perfare).
 
 ## How to use
-1. Install [Magisk](https://t.me/s/magiskalpha) v24 or later and enable Zygisk
-2. Build and install module
-   - Download the prebuilt module from [Releases](https://github.com/codehasan/Zygisk-Il2CppDumper/releases) or build it yourself
-   - Install the module in Magisk and reboot
-3. Set target game package name
+1. Install [Magisk](https://t.me/s/magiskalpha) v24 or later and enable Zygisk.
+2. Build and install module.
+   - Download the prebuilt module from [Releases](https://github.com/codehasan/Zygisk-Il2CppDumper/releases) or build it yourself.
+   - Install the module in Magisk and reboot.
+3. Set target game package for dump with ADB or Root Shell.
+   - ADB
    ```bash
-   # Set the package name of the game you want to dump
    adb shell "setprop persist.il2cppdumper.package com.example.game"
    ```
-4. Start the game, `dump.cs` will be generated in the `/data/data/GamePackageName/files/` directory
+   - Root Shell
+   ```bash
+   setprop persist.il2cppdumper.package com.example.game
+   ```
+5. Start the game and wait until it finishes loading. `dump.cs` file will be generated in the `/data/data/GamePackageName/files/` directory.
 
-> **Note:** You can change the target game at any time by setting the property again and restarting the game. No need to rebuild or reinstall the module. Use `setprop persist.il2cppdumper.package com.new.game` to change the target.
+> **Note:** You can change the target game package at any time by setting the property again and restarting the game. No need to rebuild or reinstall the module. Use `setprop persist.il2cppdumper.package com.new.game` to change the target.
 
 ### Advanced: Building from source
 If you prefer to build the module yourself:
-1. Download the source code
-2. Use Android Studio to run the gradle task `:module:assembleRelease` to compile
-3. The zip package will be generated in the `out` folder
-4. Install the module in Magisk
+1. Download the source code.
+2. Use Android Studio to run the gradle task `:module:assembleRelease` to compile.
+3. The zip package will be generated in the `out` folder.
+4. Install the module in Magisk.
