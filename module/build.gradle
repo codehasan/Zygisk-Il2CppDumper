@@ -40,7 +40,9 @@ tasks.register("updateJson") {
     def versionCode = moduleVersionCode
     // Matches the release zip name produced by the zipRelease task, so the
     // asset uploaded to the GitHub release is exactly what this URL points at.
-    def releaseZipName = "${moduleName.replace(' ', '_')}-${version}(${versionCode})-release.zip"
+    // Avoid characters GitHub rewrites in release asset names (e.g. it turns
+    // parentheses into dots), otherwise this URL would 404 against the upload.
+    def releaseZipName = "${moduleName.replace(' ', '_')}-${version}-${versionCode}-release.zip"
 
     inputs.property("version", version)
     inputs.property("versionCode", versionCode)
@@ -67,7 +69,7 @@ androidComponents {
         def variantCapped = variant.name.capitalize()
         def variantLowered = variant.name.toLowerCase()
 
-        def zipName = "${moduleName.replace(' ', '_')}-${moduleVersion}(${moduleVersionCode})-${variantLowered}.zip"
+        def zipName = "${moduleName.replace(' ', '_')}-${moduleVersion}-${moduleVersionCode}-${variantLowered}.zip"
         def moduleDir = file("$outDir/module_$variantLowered")
         def aarArtifact = variant.artifacts.get(SingleArtifact.AAR.INSTANCE)
 
