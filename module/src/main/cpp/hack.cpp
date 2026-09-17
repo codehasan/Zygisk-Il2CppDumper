@@ -120,9 +120,17 @@ bool NativeBridgeLoad(const char *game_data_dir, int api_level, void *data, size
     sleep(5);
 
     auto libart = dlopen("libart.so", RTLD_NOW);
+    if (!libart) {
+        LOGE("dlopen libart.so failed");
+        return false;
+    }
     auto JNI_GetCreatedJavaVMs = (jint (*)(JavaVM **, jsize, jsize *)) dlsym(libart,
                                                                              "JNI_GetCreatedJavaVMs");
     LOGI("JNI_GetCreatedJavaVMs %p", JNI_GetCreatedJavaVMs);
+    if (!JNI_GetCreatedJavaVMs) {
+        LOGE("dlsym JNI_GetCreatedJavaVMs failed");
+        return false;
+    }
     JavaVM *vms_buf[1];
     JavaVM *vms;
     jsize num_vms;
@@ -159,9 +167,25 @@ bool NativeBridgeLoad(const char *game_data_dir, int api_level, void *data, size
             LOGI("NativeBridgeLoadLibraryExt %p", callbacks->loadLibraryExt);
             LOGI("NativeBridgeGetTrampoline %p", callbacks->getTrampoline);
 
-            int fd = syscall(__NR_memfd_create, "anon", MFD_CLOEXEC);
-            ftruncate(fd, (off_t) length);
+            int fd = (int) syscall(__NR_memfd_create, "anon", MFD_CLOEXEC);
+            if (fd == -1) {
+                LOGE("memfd_create failed");
+                munmap(data, length);
+                return false;
+            }
+            if (ftruncate(fd, (off_t) length) == -1) {
+                LOGE("ftruncate failed");
+                close(fd);
+                munmap(data, length);
+                return false;
+            }
             void *mem = mmap(nullptr, length, PROT_WRITE, MAP_SHARED, fd, 0);
+            if (mem == MAP_FAILED) {
+                LOGE("mmap memfd failed");
+                close(fd);
+                munmap(data, length);
+                return false;
+            }
             memcpy(mem, data, length);
             munmap(mem, length);
             munmap(data, length);
