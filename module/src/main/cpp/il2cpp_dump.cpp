@@ -17,6 +17,7 @@
 #include "log.h"
 #include "il2cpp-tabledefs.h"
 #include "il2cpp-class.h"
+#include "toast.h"
 
 #define DO_API(r, n, p) r (*n) p
 
@@ -441,6 +442,7 @@ void il2cpp_api_init(void *handle) {
 
 void il2cpp_dump(const char *outDir) {
     LOGI("dumping...");
+    show_toast("dump started");
     size_t size;
     auto domain = il2cpp_domain_get();
     auto assemblies = il2cpp_domain_get_assemblies(domain, &size);
@@ -448,6 +450,7 @@ void il2cpp_dump(const char *outDir) {
     std::ofstream outStream(outPath);
     if (!outStream) {
         LOGE("failed to open dump file: %s", outPath.data());
+        show_toast("failed to open " + outPath);
         return;
     }
     for (int i = 0; i < size; ++i) {
@@ -515,4 +518,5 @@ void il2cpp_dump(const char *outDir) {
     LOGI("write dump file");
     outStream.close();
     LOGI("dump done!");
+    show_toast("dump saved to " + outPath);
 }
