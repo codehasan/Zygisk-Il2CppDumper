@@ -348,26 +348,28 @@ void il2cpp_dump(const char *outDir) {
     size_t size;
     auto domain = il2cpp_domain_get();
     auto assemblies = il2cpp_domain_get_assemblies(domain, &size);
-    std::stringstream imageOutput;
+    auto outPath = std::string(outDir).append("/files/dump.cs");
+    std::ofstream outStream(outPath);
+    if (!outStream) {
+        LOGE("failed to open dump file: %s", outPath.data());
+        return;
+    }
     for (int i = 0; i < size; ++i) {
         auto image = il2cpp_assembly_get_image(assemblies[i]);
-        imageOutput << "// Image " << i << ": " << il2cpp_image_get_name(image) << "\n";
+        outStream << "// Image " << i << ": " << il2cpp_image_get_name(image) << "\n";
     }
-    std::vector<std::string> outPuts;
     if (il2cpp_image_get_class) {
         LOGI("Version greater than 2018.3");
         //使用il2cpp_image_get_class
         for (int i = 0; i < size; ++i) {
             auto image = il2cpp_assembly_get_image(assemblies[i]);
-            std::stringstream imageStr;
-            imageStr << "\n// Dll : " << il2cpp_image_get_name(image);
+            std::string dllHeader = std::string("\n// Dll : ") + il2cpp_image_get_name(image);
             auto classCount = il2cpp_image_get_class_count(image);
             for (int j = 0; j < classCount; ++j) {
                 auto klass = il2cpp_image_get_class(image, j);
                 auto type = il2cpp_class_get_type(const_cast<Il2CppClass *>(klass));
                 //LOGD("type name : %s", il2cpp_type_get_name(type));
-                auto outPut = imageStr.str() + dump_type(type);
-                outPuts.push_back(std::move(outPut));
+                outStream << dllHeader << dump_type(type);
             }
         }
     } else {
@@ -393,9 +395,8 @@ void il2cpp_dump(const char *outDir) {
         typedef Il2CppArray *(*Assembly_GetTypes_ftn)(void *, void *);
         for (int i = 0; i < size; ++i) {
             auto image = il2cpp_assembly_get_image(assemblies[i]);
-            std::stringstream imageStr;
             auto image_name = il2cpp_image_get_name(image);
-            imageStr << "\n// Dll : " << image_name;
+            std::string dllHeader = std::string("\n// Dll : ") + image_name;
             //LOGD("image name : %s", image->name);
             auto imageName = std::string(image_name);
             auto pos = imageName.rfind('.');
@@ -411,19 +412,11 @@ void il2cpp_dump(const char *outDir) {
                 auto klass = il2cpp_class_from_system_type((Il2CppReflectionType *) items[j]);
                 auto type = il2cpp_class_get_type(klass);
                 //LOGD("type name : %s", il2cpp_type_get_name(type));
-                auto outPut = imageStr.str() + dump_type(type);
-                outPuts.push_back(std::move(outPut));
+                outStream << dllHeader << dump_type(type);
             }
         }
     }
     LOGI("write dump file");
-    auto outPath = std::string(outDir).append("/files/dump.cs");
-    std::ofstream outStream(outPath);
-    outStream << imageOutput.str();
-    auto count = outPuts.size();
-    for (int i = 0; i < count; ++i) {
-        outStream << outPuts[i];
-    }
     outStream.close();
     LOGI("dump done!");
 }
