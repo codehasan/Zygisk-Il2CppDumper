@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zygisk - Il2CppDumper WebUI</title>
+    <style>
+        :root {
+            --primary: #007bff;
+            --primary-hover: #0056b3;
+            --bg: #f8f9fa;
+            --surface: #ffffff;
+            --text: #212529;
+            --text-muted: #6c757d;
+            --border: #ced4da;
+            --radius: 8px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #0d6efd;
+                --primary-hover: #0b5ed7;
+                --bg: #212529;
+                --surface: #343a40;
+                --text: #f8f9fa;
+                --text-muted: #adb5bd;
+                --border: #495057;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid var(--border);
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 22px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg);
+            color: var(--text);
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        button {
+            width: 100%;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px;
+            font-size: 16px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button:disabled {
+            background-color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .status-box {
+            margin-top: 24px;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            font-size: 14px;
+            word-break: break-all;
+        }
+
+        .status-title {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .info-text {
+            margin-top: 16px;
+            font-size: 13px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Il2CppDumper Config</h2>
+    
+    <div class="form-group">
+        <label for="pkgInput">Target Package Name:</label>
+        <input type="text" id="pkgInput" placeholder="com.example.game">
+    </div>
+
+    <button id="saveBtn">Save Configuration</button>
+
+    <div class="status-box">
+        <div class="status-title">Current Target:</div>
+        <div id="currentPkg">Loading...</div>
+    </div>
+
+    <div class="info-text">
+        Note: You must restart the target game for the dumper to inject and take effect.
+    </div>
+</div>
+
+<script type="module">
+    import { exec, toast } from 'https://cdn.jsdelivr.net/npm/kernelsu';
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const pkgInput = document.getElementById('pkgInput');
+        const saveBtn = document.getElementById('saveBtn');
+        const currentPkgDisplay = document.getElementById('currentPkg');
+
+        // Fetch current package on load
+        async function loadCurrentPackage() {
+            try {
+                const { errno, stdout, stderr } = await exec('getprop persist.il2cppdumper.package');
+                if (errno === 0) {
+                    const currentPkg = stdout.trim();
+                    if (currentPkg) {
+                        pkgInput.value = currentPkg;
+                        currentPkgDisplay.textContent = currentPkg;
+                    } else {
+                        currentPkgDisplay.textContent = '(None set)';
+                    }
+                } else {
+                    currentPkgDisplay.textContent = 'Error reading property';
+                    console.error('getprop error:', stderr);
+                }
+            } catch (err) {
+                currentPkgDisplay.textContent = 'Error: API not available';
+                console.error(err);
+                toast('Failed to load current package. Are you in KernelSU/APatch?');
+            }
+        }
+
+        // Save new package
+        saveBtn.addEventListener('click', async () => {
+            const newPkg = pkgInput.value.trim();
+
+            // Validate before passing to a root shell: only allow valid
+            // Android package characters so nothing can be injected into setprop.
+            if (!/^[a-zA-Z0-9._]+$/.test(newPkg)) {
+                toast('Invalid package name');
+                return;
+            }
+
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            try {
+                const { errno, stdout, stderr } = await exec(`setprop persist.il2cppdumper.package ${newPkg}`);
+                if (errno === 0) {
+                    currentPkgDisplay.textContent = newPkg || '(None set)';
+                    toast(`Package set to ${newPkg}`);
+                } else {
+                    toast('Failed to save config!');
+                    console.error('setprop error:', stderr);
+                }
+            } catch (err) {
+                toast('Error: API not available');
+                console.error(err);
+            }
+
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Configuration';
+        });
+
+        // Initialize
+        await loadCurrentPackage();
+    });
+</script>
+
+</body>
+</html>
