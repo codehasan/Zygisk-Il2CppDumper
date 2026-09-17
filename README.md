@@ -26,6 +26,7 @@ This fork adds:
 - 🛡️ **Hardened native path** — fragile syscalls are checked and fail gracefully instead of crashing.
 - 🖥️ **WebUI for fast target switching** — set the target package from a simple page in KernelSU/APatch, no ADB or shell needed; shows the current target live.
 - 🖲️ **Root‑manager action button** — shows and helps set the current target; a boot service seeds a default.
+- 🔔 **On‑screen toasts** — the game shows a toast when Il2Cpp loads, when the dump starts, and when it finishes (with the saved `dump.cs` path), so you know it worked without checking logcat.
 - 🧰 **Modernized toolchain & broader Zygisk support** — Gradle 9 / AGP 9 / NDK 28, and Magisk, KernelSU, or APatch (+ ZygiskNext).
 
 ---
@@ -63,7 +64,7 @@ setprop persist.il2cppdumper.package com.example.game
 
 **3. Launch the game**
 
-Start the game and let it finish loading. The dump is written to:
+Start the game and let it finish loading. On‑screen toasts report progress — Il2Cpp loaded, dump started, and dump saved (with the path). The dump is written to:
 
 ```
 /data/data/<GamePackageName>/files/dump.cs
