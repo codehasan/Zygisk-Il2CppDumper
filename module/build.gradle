@@ -44,14 +44,14 @@ androidComponents {
         def variantLowered = variant.name.toLowerCase()
 
         def zipName = "${moduleName.replace(' ', '_')}-${moduleVersion}(${moduleVersionCode})-${variantLowered}.zip"
-        def magiskDir = file("$outDir/magisk_module_$variantLowered")
+        def moduleDir = file("$outDir/module_$variantLowered")
 
-        tasks.register("prepareMagiskFiles${variantCapped}", Sync) {
+        tasks.register("prepareModuleFiles${variantCapped}", Sync) {
             dependsOn("assemble$variantCapped")
 
-            def templatePath = "$rootDir/template/magisk_module"
+            def templatePath = "$rootDir/template/module"
 
-            into magiskDir
+            into moduleDir
             from(templatePath) {
                 exclude 'module.prop'
             }
@@ -59,7 +59,7 @@ androidComponents {
             from(templatePath) {
                 include 'module.prop'
                 expand([
-                        id         : magiskModuleId,
+                        id         : moduleId,
                         name       : moduleName,
                         version    : moduleVersion,
                         versionCode: moduleVersionCode.toString(),
@@ -74,15 +74,15 @@ androidComponents {
                 into 'lib'
             }
 
-            def zygiskDirFile = new File(magiskDir, "zygisk")
-            def libDirFile = new File(magiskDir, "lib")
-            def magiskLibTree = fileTree(libDirFile)
-            def magiskShTree = fileTree(magiskDir).matching { include '**/*.sh' }
+            def zygiskDirFile = new File(moduleDir, "zygisk")
+            def libDirFile = new File(moduleDir, "lib")
+            def moduleLibTree = fileTree(libDirFile)
+            def moduleShTree = fileTree(moduleDir).matching { include '**/*.sh' }
             def libName = moduleLibraryName
 
             doLast {
                 zygiskDirFile.mkdir()
-                magiskLibTree.visit { f ->
+                moduleLibTree.visit { f ->
                     if (!f.directory) return
                     def srcPath = Paths.get("${f.file.absolutePath}/lib${libName}.so")
                     def dstPath = Paths.get("${zygiskDirFile.absolutePath}/${f.path}.so")
@@ -91,15 +91,15 @@ androidComponents {
                 libDirFile.deleteDir()
 
                 // Set executable permissions for shell scripts
-                magiskShTree.each {
+                moduleShTree.each {
                     it.setExecutable(true, false)
                 }
             }
         }
 
         tasks.register("zip${variantCapped}", Zip) {
-            dependsOn("prepareMagiskFiles${variantCapped}")
-            from magiskDir
+            dependsOn("prepareModuleFiles${variantCapped}")
+            from moduleDir
             archiveFileName.set(zipName)
             destinationDirectory.set(outDir)
         }

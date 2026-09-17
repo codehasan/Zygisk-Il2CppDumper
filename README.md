@@ -5,10 +5,10 @@ Il2CppDumper with Zygisk, dump il2cpp data at runtime, can bypass protection, en
 This project is a fork of the original [Zygisk-Il2CppDumper](https://github.com/Perfare/Zygisk-Il2CppDumper) by [Perfare](https://github.com/Perfare).
 
 ## How to use
-1. Install [Magisk](https://t.me/s/magiskalpha) v24 or later and enable Zygisk.
+1. Install a Zygisk-supported root manager (Magisk, KernelSU + ZygiskNext, APatch + ZygiskNext, etc.) and enable Zygisk.
 2. Build and install module.
    - Download the prebuilt module from [Releases](https://github.com/codehasan/Zygisk-Il2CppDumper/releases) or build it yourself.
-   - Install the module in Magisk and reboot.
+   - Install the module in your root manager and reboot.
 3. Set target game package for dump with ADB or Root Shell.
    - ADB
    ```bash
@@ -27,4 +27,4 @@ If you prefer to build the module yourself:
 1. Download the source code.
 2. Use Android Studio to run the gradle task `:module:assembleRelease` to compile.
 3. The zip package will be generated in the `out` folder.
-4. Install the module in Magisk.
+4. Install the module in your root manager.
