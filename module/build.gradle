@@ -1,8 +1,6 @@
+import com.android.build.api.artifact.SingleArtifact
 import groovy.json.JsonOutput
 import org.apache.tools.ant.filters.FixCrLfFilter
-
-import java.nio.file.Files
-import java.nio.file.Paths
 
 apply plugin: 'com.android.library'
 apply from: file(rootProject.file('module.gradle'))
@@ -23,20 +21,12 @@ android {
         }
     }
 
-    buildFeatures {
-        prefab = true
-    }
-
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
             version = "4.1.2"
         }
     }
-}
-
-repositories {
-    mavenLocal()
 }
 
 tasks.register("updateJson") {
@@ -71,12 +61,15 @@ tasks.register("updateJson") {
 }
 
 androidComponents {
+    def adbProvider = sdkComponents.adb
+
     onVariants(selector().all()) { variant ->
         def variantCapped = variant.name.capitalize()
         def variantLowered = variant.name.toLowerCase()
 
         def zipName = "${moduleName.replace(' ', '_')}-${moduleVersion}(${moduleVersionCode})-${variantLowered}.zip"
         def moduleDir = file("$outDir/module_$variantLowered")
+        def aarArtifact = variant.artifacts.get(SingleArtifact.AAR.INSTANCE)
 
         tasks.register("prepareModuleFiles${variantCapped}", Sync) {
             dependsOn("assemble$variantCapped")
@@ -102,26 +95,17 @@ androidComponents {
                         eol: FixCrLfFilter.CrLf.newInstance("lf"))
             }
 
-            from(layout.buildDirectory.dir("intermediates/stripped_native_libs/$variantLowered/out/lib")) {
-                into 'lib'
+            // AAR packs native libs at jni/<abi>/lib*.so; Zygisk expects them
+            // at zygisk/<abi>.so, so map each entry straight to its final path.
+            from(aarArtifact.map { zipTree(it) }) {
+                include 'jni/*/*.so'
+                includeEmptyDirs = false
+                eachFile { it.path = "zygisk/${it.relativePath.segments[1]}.so" }
             }
 
-            def zygiskDirFile = new File(moduleDir, "zygisk")
-            def libDirFile = new File(moduleDir, "lib")
-            def moduleLibTree = fileTree(libDirFile)
             def moduleShTree = fileTree(moduleDir).matching { include '**/*.sh' }
-            def libName = moduleLibraryName
 
             doLast {
-                zygiskDirFile.mkdir()
-                moduleLibTree.visit { f ->
-                    if (!f.directory) return
-                    def srcPath = Paths.get("${f.file.absolutePath}/lib${libName}.so")
-                    def dstPath = Paths.get("${zygiskDirFile.absolutePath}/${f.path}.so")
-                    Files.move(srcPath, dstPath)
-                }
-                libDirFile.deleteDir()
-
                 // Set executable permissions for shell scripts
                 moduleShTree.each {
                     it.setExecutable(true, false)
@@ -139,18 +123,18 @@ androidComponents {
         tasks.register("push${variantCapped}", Exec) {
             dependsOn("zip${variantCapped}")
             workingDir outDir
-            commandLine android.adbExecutable, "push", zipName, "/data/local/tmp/"
+            commandLine adbProvider.get().asFile, "push", zipName, "/data/local/tmp/"
         }
 
         tasks.register("flash${variantCapped}", Exec) {
             dependsOn("push${variantCapped}")
-            commandLine android.adbExecutable, "shell", "su", "-c",
+            commandLine adbProvider.get().asFile, "shell", "su", "-c",
                     "magisk --install-module /data/local/tmp/${zipName}"
         }
 
         tasks.register("flashAndReboot${variantCapped}", Exec) {
             dependsOn("flash${variantCapped}")
-            commandLine android.adbExecutable, "shell", "reboot"
+            commandLine adbProvider.get().asFile, "shell", "reboot"
         }
 
         afterEvaluate {
