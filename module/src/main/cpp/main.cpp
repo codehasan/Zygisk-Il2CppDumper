@@ -63,12 +63,23 @@ private:
             int fd = openat(dirfd, path, O_RDONLY);
             if (fd != -1) {
                 struct stat sb{};
-                fstat(fd, &sb);
-                length = sb.st_size;
-                data = mmap(nullptr, length, PROT_READ, MAP_PRIVATE, fd, 0);
+                if (fstat(fd, &sb) == 0 && sb.st_size > 0) {
+                    length = sb.st_size;
+                    data = mmap(nullptr, length, PROT_READ, MAP_PRIVATE, fd, 0);
+                    if (data == MAP_FAILED) {
+                        LOGW("Unable to mmap arm file");
+                        data = nullptr;
+                        length = 0;
+                    }
+                } else {
+                    LOGW("Unable to stat arm file");
+                }
                 close(fd);
             } else {
                 LOGW("Unable to open arm file");
+            }
+            if (data == nullptr) {
+                enable_hack = false;
             }
 #endif
         } else {
