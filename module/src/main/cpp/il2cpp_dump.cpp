@@ -450,7 +450,7 @@ void il2cpp_dump(const char *outDir) {
     std::ofstream outStream(outPath);
     if (!outStream) {
         LOGE("failed to open dump file: %s", outPath.data());
-        show_toast("failed to open " + outPath);
+        show_toast("failed to open " + outPath, TOAST_LENGTH_LONG);
         return;
     }
     for (int i = 0; i < size; ++i) {
@@ -518,5 +518,5 @@ void il2cpp_dump(const char *outDir) {
     LOGI("write dump file");
     outStream.close();
     LOGI("dump done!");
-    show_toast("dump saved to " + outPath);
+    show_toast("dump saved to " + outPath, TOAST_LENGTH_LONG);
 }

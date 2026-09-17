@@ -54,7 +54,7 @@ static void quit_looper_later(JavaVM *vm, jobject looper_global) {
     vm->DetachCurrentThread();
 }
 
-static void toast_worker(JavaVM *vm, std::string text) {
+static void toast_worker(JavaVM *vm, std::string text, int duration) {
     JNIEnv *env = nullptr;
     if (vm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
         return;
@@ -93,8 +93,7 @@ static void toast_worker(JavaVM *vm, std::string text) {
             toastClass, "makeText",
             "(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;") : nullptr;
     if (makeText) {
-        // 1 == Toast.LENGTH_LONG
-        jobject toast = env->CallStaticObjectMethod(toastClass, makeText, context, jtext, 1);
+        jobject toast = env->CallStaticObjectMethod(toastClass, makeText, context, jtext, duration);
         if (toast) {
             jmethodID show = env->GetMethodID(toastClass, "show", "()V");
             env->CallVoidMethod(toast, show);
@@ -122,11 +121,11 @@ static void toast_worker(JavaVM *vm, std::string text) {
     vm->DetachCurrentThread();
 }
 
-void show_toast(const std::string &text) {
+void show_toast(const std::string &text, int duration) {
     JavaVM *vm = GetJavaVM();
     if (!vm) {
         LOGW("toast: no JavaVM, dropping: %s", text.c_str());
         return;
     }
-    std::thread(toast_worker, vm, text).detach();
+    std::thread(toast_worker, vm, text, duration).detach();
 }
