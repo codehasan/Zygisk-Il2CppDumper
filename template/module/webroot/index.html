@@ -32,7 +32,12 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg);
             color: var(--text);
-            padding: 20px;
+            /* Keep content clear of the system bars when edge-to-edge is on.
+               env() resolves to 0 on hosts that don't expose insets. */
+            padding: max(20px, env(safe-area-inset-top))
+                     max(20px, env(safe-area-inset-right))
+                     max(20px, env(safe-area-inset-bottom))
+                     max(20px, env(safe-area-inset-left));
             margin: 0;
             display: flex;
             justify-content: center;
@@ -66,7 +71,7 @@
             font-size: 14px;
         }
 
-        input[type="text"] {
+        input[type="text"], select {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--border);
@@ -78,9 +83,13 @@
             transition: border-color 0.2s;
         }
 
-        input[type="text"]:focus {
+        input[type="text"]:focus, select:focus {
             outline: none;
             border-color: var(--primary);
+        }
+
+        [hidden] {
+            display: none !important;
         }
 
         button {
@@ -138,6 +147,14 @@
         <input type="text" id="pkgInput" placeholder="com.example.game">
     </div>
 
+    <!-- Optional addon: only revealed when the host supports listing packages. -->
+    <div class="form-group" id="pickerGroup" hidden>
+        <label for="pkgPicker">Or pick an installed app:</label>
+        <select id="pkgPicker">
+            <option value="">— Loading apps… —</option>
+        </select>
+    </div>
+
     <button id="saveBtn">Save Configuration</button>
 
     <div class="status-box">
@@ -151,12 +168,14 @@
 </div>
 
 <script type="module">
-    import { exec, toast, isKsuWebui } from './kernelsu-alt.mjs';
+    import { exec, toast, isKsuWebui, listPackages, getPackagesInfo, enableEdgeToEdge } from './kernelsu-alt.mjs';
 
     document.addEventListener('DOMContentLoaded', async () => {
         const pkgInput = document.getElementById('pkgInput');
         const saveBtn = document.getElementById('saveBtn');
         const currentPkgDisplay = document.getElementById('currentPkg');
+        const pickerGroup = document.getElementById('pickerGroup');
+        const pkgPicker = document.getElementById('pkgPicker');
 
         // Bail out early with a clear message if no root WebUI bridge is present.
         if (!isKsuWebui()) {
@@ -166,6 +185,9 @@
             toast('Open this WebUI from your root manager (Magisk WebUI-X / KernelSU / APatch).');
             return;
         }
+
+        // Best-effort full-bleed layout; unsupported hosts stay padded (see CSS).
+        enableEdgeToEdge(true).catch(() => {});
 
         // Fetch current package on load
         async function loadCurrentPackage() {
@@ -187,6 +209,56 @@
                 currentPkgDisplay.textContent = 'Error: API not available';
                 console.error(err);
                 toast('Failed to load current package. Are you in KernelSU/APatch?');
+            }
+        }
+
+        // Optional addon: an installed-app picker. Not every WebUI host supports
+        // listing packages, so this is entirely best-effort — on any failure the
+        // picker stays hidden and the plain text field remains the only input.
+        async function setupAppPicker() {
+            try {
+                const pkgs = await listPackages('user');
+                if (!Array.isArray(pkgs) || pkgs.length === 0) return;
+
+                // Best-effort human-readable labels; fall back to raw names when
+                // the host lacks getPackagesInfo support.
+                let labels = {};
+                try {
+                    const info = await getPackagesInfo(pkgs);
+                    for (const app of Array.isArray(info) ? info : [info]) {
+                        if (app && app.packageName) {
+                            labels[app.packageName] = app.appLabel || app.packageName;
+                        }
+                    }
+                } catch (_) {
+                    // No labels available; package names will be shown as-is.
+                }
+
+                const entries = pkgs
+                    .map((p) => ({ pkg: p, label: labels[p] || p }))
+                    .sort((a, b) => a.label.localeCompare(b.label));
+
+                pkgPicker.innerHTML = '<option value="">— Select an app —</option>';
+                for (const { pkg, label } of entries) {
+                    const opt = document.createElement('option');
+                    opt.value = pkg;
+                    opt.textContent = label === pkg ? pkg : `${label} (${pkg})`;
+                    pkgPicker.appendChild(opt);
+                }
+
+                // Reflect the current target if it's in the list.
+                if (pkgInput.value && pkgs.includes(pkgInput.value)) {
+                    pkgPicker.value = pkgInput.value;
+                }
+
+                pkgPicker.addEventListener('change', () => {
+                    if (pkgPicker.value) pkgInput.value = pkgPicker.value;
+                });
+
+                pickerGroup.hidden = false;
+            } catch (err) {
+                // listPackages unsupported on this host — leave the picker hidden.
+                console.warn('App picker unavailable:', err);
             }
         }
 
@@ -224,6 +296,7 @@
 
         // Initialize
         await loadCurrentPackage();
+        await setupAppPicker();
     });
 </script>
 
