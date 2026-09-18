@@ -151,14 +151,6 @@
         <input type="text" id="pkgInput" placeholder="com.example.game">
     </div>
 
-    <!-- Optional addon: only revealed when the host supports listing packages. -->
-    <div class="form-group" id="pickerGroup" hidden>
-        <label for="pkgPicker">Or pick an installed app:</label>
-        <select id="pkgPicker">
-            <option value="">— Loading apps… —</option>
-        </select>
-    </div>
-
     <button id="saveBtn">Save</button>
 
     <div class="status-box">
@@ -172,14 +164,12 @@
 </div>
 
 <script type="module">
-    import { exec, toast, isKsuWebui, listPackages, getPackagesInfo, enableEdgeToEdge } from './kernelsu-alt.mjs';
+    import { exec, toast, isKsuWebui, enableEdgeToEdge } from './kernelsu-alt.mjs';
 
     document.addEventListener('DOMContentLoaded', async () => {
         const pkgInput = document.getElementById('pkgInput');
         const saveBtn = document.getElementById('saveBtn');
         const currentPkgDisplay = document.getElementById('currentPkg');
-        const pickerGroup = document.getElementById('pickerGroup');
-        const pkgPicker = document.getElementById('pkgPicker');
 
         // Bail out early with a clear message if no root WebUI bridge is present.
         if (!isKsuWebui()) {
@@ -212,56 +202,6 @@
                 currentPkgDisplay.textContent = 'Error: API not available';
                 console.error(err);
                 toast('Failed to load current package. Are you in KernelSU/APatch?');
-            }
-        }
-
-        // Optional addon: an installed-app picker. Not every WebUI host supports
-        // listing packages, so this is entirely best-effort — on any failure the
-        // picker stays hidden and the plain text field remains the only input.
-        async function setupAppPicker() {
-            try {
-                const pkgs = await listPackages('user');
-                if (!Array.isArray(pkgs) || pkgs.length === 0) return;
-
-                // Best-effort human-readable labels; fall back to raw names when
-                // the host lacks getPackagesInfo support.
-                let labels = {};
-                try {
-                    const info = await getPackagesInfo(pkgs);
-                    for (const app of Array.isArray(info) ? info : [info]) {
-                        if (app && app.packageName) {
-                            labels[app.packageName] = app.appLabel || app.packageName;
-                        }
-                    }
-                } catch (_) {
-                    // No labels available; package names will be shown as-is.
-                }
-
-                const entries = pkgs
-                    .map((p) => ({ pkg: p, label: labels[p] || p }))
-                    .sort((a, b) => a.label.localeCompare(b.label));
-
-                pkgPicker.innerHTML = '<option value="">— Select an app —</option>';
-                for (const { pkg, label } of entries) {
-                    const opt = document.createElement('option');
-                    opt.value = pkg;
-                    opt.textContent = label === pkg ? pkg : `${label} (${pkg})`;
-                    pkgPicker.appendChild(opt);
-                }
-
-                // Reflect the current target if it's in the list.
-                if (pkgInput.value && pkgs.includes(pkgInput.value)) {
-                    pkgPicker.value = pkgInput.value;
-                }
-
-                pkgPicker.addEventListener('change', () => {
-                    if (pkgPicker.value) pkgInput.value = pkgPicker.value;
-                });
-
-                pickerGroup.hidden = false;
-            } catch (err) {
-                // listPackages unsupported on this host — leave the picker hidden.
-                console.warn('App picker unavailable:', err);
             }
         }
 
@@ -299,7 +239,6 @@
 
         // Initialize
         await loadCurrentPackage();
-        await setupAppPicker();
     });
 </script>
 
