@@ -39,8 +39,12 @@
                      max(20px, env(safe-area-inset-bottom))
                      max(20px, env(safe-area-inset-left));
             margin: 0;
+            box-sizing: border-box;
+            min-height: 100vh;
+            min-height: 100dvh;
             display: flex;
             justify-content: center;
+            align-items: center;
         }
 
         .card {
