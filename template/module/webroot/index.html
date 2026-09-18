@@ -159,7 +159,7 @@
         </select>
     </div>
 
-    <button id="saveBtn">Save Configuration</button>
+    <button id="saveBtn">Save</button>
 
     <div class="status-box">
         <div class="status-title">Current Target:</div>
@@ -200,7 +200,6 @@
                 if (errno === 0) {
                     const currentPkg = stdout.trim();
                     if (currentPkg) {
-                        pkgInput.value = currentPkg;
                         currentPkgDisplay.textContent = currentPkg;
                     } else {
                         currentPkgDisplay.textContent = '(None set)';
