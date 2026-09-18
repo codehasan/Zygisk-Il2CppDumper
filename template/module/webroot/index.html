@@ -132,7 +132,7 @@
 
 <div class="card">
     <h2>Il2CppDumper Config</h2>
-    
+
     <div class="form-group">
         <label for="pkgInput">Target Package Name:</label>
         <input type="text" id="pkgInput" placeholder="com.example.game">
@@ -151,12 +151,21 @@
 </div>
 
 <script type="module">
-    import { exec, toast } from 'https://cdn.jsdelivr.net/npm/kernelsu';
+    import { exec, toast, isKsuWebui } from './kernelsu-alt.mjs';
 
     document.addEventListener('DOMContentLoaded', async () => {
         const pkgInput = document.getElementById('pkgInput');
         const saveBtn = document.getElementById('saveBtn');
         const currentPkgDisplay = document.getElementById('currentPkg');
+
+        // Bail out early with a clear message if no root WebUI bridge is present.
+        if (!isKsuWebui()) {
+            currentPkgDisplay.textContent = 'Root WebUI bridge not available';
+            pkgInput.disabled = true;
+            saveBtn.disabled = true;
+            toast('Open this WebUI from your root manager (Magisk WebUI-X / KernelSU / APatch).');
+            return;
+        }
 
         // Fetch current package on load
         async function loadCurrentPackage() {
