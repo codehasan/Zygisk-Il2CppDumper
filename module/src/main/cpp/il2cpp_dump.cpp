@@ -13,6 +13,9 @@
 #include <sstream>
 #include <fstream>
 #include <unistd.h>
+#include <link.h>
+#include <csetjmp>
+#include <csignal>
 #include "xdl.h"
 #include "log.h"
 #include "il2cpp-tabledefs.h"
@@ -421,29 +424,98 @@ std::string dump_type(const Il2CppType *type) {
 void il2cpp_api_init(void *handle) {
     LOGI("il2cpp_handle: %p", handle);
     init_il2cpp_api(handle);
-    if (il2cpp_domain_get_assemblies) {
+    // Base from the module load address; fall back to dladdr on an export.
+    xdl_info_t xinfo{};
+    if (xdl_info(handle, XDL_DI_DLINFO, &xinfo) == 0 && xinfo.dli_fbase) {
+        il2cpp_base = reinterpret_cast<uint64_t>(xinfo.dli_fbase);
+    } else if (il2cpp_domain_get_assemblies) {
         Dl_info dlInfo;
         if (dladdr((void *) il2cpp_domain_get_assemblies, &dlInfo)) {
             il2cpp_base = reinterpret_cast<uint64_t>(dlInfo.dli_fbase);
         }
-        LOGI("il2cpp_base: %" PRIx64"", il2cpp_base);
+    }
+    LOGI("il2cpp_base: %" PRIx64"", il2cpp_base);
+    // Wait for the runtime, only if the probe resolved.
+    if (il2cpp_is_vm_thread) {
+        for (int i = 0; i < 120 && !il2cpp_is_vm_thread(nullptr); ++i) {
+            LOGI("Waiting for il2cpp_init...");
+            sleep(1);
+        }
     } else {
-        LOGE("Failed to initialize il2cpp api.");
-        return;
+        LOGW("il2cpp_is_vm_thread missing; skipping vm-thread wait");
     }
-    while (!il2cpp_is_vm_thread(nullptr)) {
-        LOGI("Waiting for il2cpp_init...");
-        sleep(1);
+    if (il2cpp_domain_get && il2cpp_thread_attach) {
+        auto domain = il2cpp_domain_get();
+        if (domain) {
+            il2cpp_thread_attach(domain);
+        } else {
+            LOGW("il2cpp_domain_get returned null; skipping thread_attach");
+        }
+    } else {
+        LOGW("domain_get/thread_attach missing; skipping thread_attach");
     }
-    auto domain = il2cpp_domain_get();
-    il2cpp_thread_attach(domain);
 }
+
+// Scoped SIGSEGV/SIGBUS guard: skip decoy classes whose malformed metadata
+// faults inside libil2cpp, instead of crashing the whole dump.
+static sigjmp_buf g_dump_jmp;
+static volatile sig_atomic_t g_dump_guard_active = 0;
+static pid_t g_dump_tid = 0;
+static struct sigaction g_old_segv{};
+static struct sigaction g_old_bus{};
+
+static void dump_fault_handler(int sig, siginfo_t *info, void *ucontext) {
+    // Only catch faults on our dump thread; chain everything else.
+    if (g_dump_guard_active && gettid() == g_dump_tid) {
+        siglongjmp(g_dump_jmp, sig);
+    }
+    struct sigaction *old = (sig == SIGBUS) ? &g_old_bus : &g_old_segv;
+    if (old->sa_flags & SA_SIGINFO) {
+        if (old->sa_sigaction) old->sa_sigaction(sig, info, ucontext);
+    } else if (old->sa_handler == SIG_IGN || old->sa_handler == SIG_DFL) {
+        signal(sig, SIG_DFL);
+        raise(sig);
+    } else if (old->sa_handler) {
+        old->sa_handler(sig);
+    }
+}
+
+static void install_dump_guard() {
+    g_dump_tid = gettid();
+    struct sigaction sa{};
+    sa.sa_sigaction = dump_fault_handler;
+    sa.sa_flags = SA_SIGINFO | SA_NODEFER | SA_ONSTACK;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGSEGV, &sa, &g_old_segv);
+    sigaction(SIGBUS, &sa, &g_old_bus);
+}
+
+static void remove_dump_guard() {
+    g_dump_guard_active = 0;
+    sigaction(SIGSEGV, &g_old_segv, nullptr);
+    sigaction(SIGBUS, &g_old_bus, nullptr);
+}
+// ---------------------------------------------------------------------------
 
 void il2cpp_dump(const char *outDir) {
     LOGI("dumping...");
-    size_t size;
+    // Bail if the essential walk APIs are missing, rather than null-calling.
+    if (!il2cpp_domain_get || !il2cpp_domain_get_assemblies ||
+        !il2cpp_assembly_get_image || !il2cpp_image_get_name) {
+        LOGE("essential il2cpp api missing; cannot dump");
+        return;
+    }
+    size_t size = 0;
     auto domain = il2cpp_domain_get();
+    if (!domain) {
+        LOGE("il2cpp_domain_get returned null; cannot dump");
+        return;
+    }
     auto assemblies = il2cpp_domain_get_assemblies(domain, &size);
+    if (!assemblies || size == 0) {
+        LOGE("no assemblies (assemblies=%p size=%zu); cannot dump", (void *) assemblies, size);
+        return;
+    }
     auto outPath = std::string(outDir).append("/files/dump.cs");
     std::ofstream outStream(outPath);
     if (!outStream) {
@@ -456,18 +528,39 @@ void il2cpp_dump(const char *outDir) {
     }
     if (il2cpp_image_get_class) {
         LOGI("Version greater than 2018.3");
+        install_dump_guard();
+        int skipped = 0;
         //使用il2cpp_image_get_class
         for (int i = 0; i < size; ++i) {
             auto image = il2cpp_assembly_get_image(assemblies[i]);
             std::string dllHeader = std::string("\n// Dll : ") + il2cpp_image_get_name(image);
             auto classCount = il2cpp_image_get_class_count(image);
             for (int j = 0; j < classCount; ++j) {
-                auto klass = il2cpp_image_get_class(image, j);
-                auto type = il2cpp_class_get_type(const_cast<Il2CppClass *>(klass));
-                //LOGD("type name : %s", il2cpp_type_get_name(type));
-                outStream << dllHeader << dump_type(type);
+                // Guard each class; a faulting decoy is skipped, not fatal.
+                g_dump_guard_active = 1;
+                if (sigsetjmp(g_dump_jmp, 1) == 0) {
+                    auto klass = il2cpp_image_get_class(image, j);
+                    if (!klass) {
+                        ++skipped;
+                    } else {
+                        auto type = il2cpp_class_get_type(const_cast<Il2CppClass *>(klass));
+                        if (!type) {
+                            ++skipped;
+                        } else {
+                            //LOGD("type name : %s", il2cpp_type_get_name(type));
+                            outStream << dllHeader << dump_type(type);
+                        }
+                    }
+                } else {
+                    // came back via siglongjmp from the handler
+                    ++skipped;
+                    LOGW("skipped decoy/broken class image=%d index=%d", i, j);
+                }
+                g_dump_guard_active = 0;
             }
         }
+        remove_dump_guard();
+        if (skipped) LOGW("dump finished with %d skipped classes", skipped);
     } else {
         LOGI("Version less than 2018.3");
         //使用反射
