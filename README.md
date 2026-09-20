@@ -11,8 +11,6 @@
 
 </div>
 
----
-
 ## Features
 
 **Original:** Runtime Il2Cpp metadata dumping to `dump.cs` on arm64/armeabi-v7a (and x86/x86_64 via houdini).
@@ -27,8 +25,6 @@
 - 🖥️ **WebUI** — Switch targets directly via KernelSU/APatch without ADB or shell.
 - 🖲️ **Root-manager integration** — Action button to view/set targets, with a seeded boot default.
 
----
-
 ## Requirements
 
 - A Zygisk‑capable root solution with Zygisk **enabled**:
@@ -38,8 +34,6 @@
 
 > [!IMPORTANT]
 > **Game crashes on launch?** It likely detects root. Turn **Enforce DenyList OFF**, install [**Shamiko**](https://github.com/LSPosed/LSPosed.github.io/releases), and add the game to the DenyList — this hides root while keeping the module loaded.
-
----
 
 ## Usage
 
@@ -77,16 +71,12 @@ Start the game and let it finish loading. The dump is written to:
 > setprop persist.il2cppdumper.package com.new.game
 > ```
 
----
-
 ## Building from source
 
 1. Clone or download the source.
 2. In Android Studio, run the Gradle task `:module:assembleRelease`.
 3. The flashable zip is produced in the `out/` folder.
 4. Flash it in your root manager and reboot.
-
----
 
 ## Credits
 
