@@ -1,5 +1,7 @@
 <div align="center">
 
+![banner](https://raw.githubusercontent.com/codehasan/Zygisk-Il2CppDumper/master/images/banner.webp)
+
 # Zygisk‑Il2CppDumper
 
 **Dump Il2Cpp metadata from a running game — past encryption, obfuscation, and packing.**
